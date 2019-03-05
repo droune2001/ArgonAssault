@@ -3,43 +3,52 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityStandardAssets.CrossPlatformInput;
 
-public class Player : MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
-    [Tooltip("In ms^-1")][SerializeField] float speed = 15f;
+    [Header("General")]
+    [Tooltip("In ms^-1")][SerializeField] float controlSpeed = 15f;
     [SerializeField] float xRange = 9f;
     [SerializeField] Vector2 yRange = new Vector2(-5f, 5f);
+    [SerializeField] GameObject[] guns;
 
+    [Header("Screen-position Based")]
     [SerializeField] float positionPitchFactor = -6.0f;
-    [SerializeField] float controlPitchFactor = -18.0f;
-
     [SerializeField] float positionYawFactor = 5.0f;
-    [SerializeField] float controlYawFactor = 18.0f;
 
+    [Header("Control-throw Based")]
+    [SerializeField] float controlPitchFactor = -18.0f;
+    [SerializeField] float controlYawFactor = 18.0f;
     [SerializeField] float controlRollFactor = -40.0f;
 
-    private float xThrow, yThrow;
 
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    private float xThrow, yThrow;
+    private bool areControlEnabled = true;
 
     // Update is called once per frame
     void Update()
     {
-        ProcessTranslation();
+        if (areControlEnabled)
+        {
+            ProcessTranslation();
+            ProcessRotation();
+            ProcessFiring();
+        }
+    }
 
-        ProcessRotation();
+    // Called by CollisionHandler
+    void OnPlayerDeath()
+    {
+        areControlEnabled = false;
+        ActivateGuns(false);
     }
 
     void ProcessTranslation()
     {
         xThrow = CrossPlatformInputManager.GetAxis("Horizontal");
-        float xOffset = xThrow * speed * Time.deltaTime;
+        float xOffset = xThrow * controlSpeed * Time.deltaTime;
 
         yThrow = CrossPlatformInputManager.GetAxis("Vertical");
-        float yOffset = yThrow * speed * Time.deltaTime;
+        float yOffset = yThrow * controlSpeed * Time.deltaTime;
 
         float rawXPos = transform.localPosition.x + xOffset;
         float clampedXPos = Mathf.Clamp(rawXPos, -xRange, xRange);
@@ -63,5 +72,30 @@ public class Player : MonoBehaviour
         float roll = controlRollFactor * xThrow;
 
         transform.localRotation = Quaternion.Euler(pitch, yaw, roll);
+    }
+
+    void ProcessFiring()
+    {
+        if (CrossPlatformInputManager.GetButton("Fire"))
+        {
+            ActivateGuns(true);
+        }
+        else if (CrossPlatformInputManager.GetButtonUp("Fire"))
+        {
+            ActivateGuns(false);
+        }
+    }
+
+    private void ActivateGuns(bool isActive)
+    {
+        foreach (var gun in guns)
+        {
+            if (isActive)
+            {
+                gun.SetActive(isActive);
+            }
+            var emissionModule = gun.GetComponent<ParticleSystem>().emission;
+            emissionModule.enabled = isActive;
+        }
     }
 }
